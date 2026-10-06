@@ -1,36 +1,158 @@
-name: Node cicd
+name: Node CI/CD
 
-permissions:
-  contents: write
-
-on: 
+on:
   push:
-    
-
+    paths:
+      - "**.js"
+      - "package*.json"
+      - "Dockerfile"
+      - ".github/workflows/cicd.yml"
   release:
     types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   setup-node:
     name: Setup Node.js
     runs-on: ubuntu-latest
     steps:
-     - name: Checkout repository
-       uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-     - name: Setup Node.js
-       uses: actions/setup-node@v6
-       with:
-        node-version: 22
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
 
-     - name: Install dependencies
-       run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-     - name: upload workspace as artifact
-       uses: actions/upload-artifact@v6
-       with:
-         name: node_workspace
-         path: ./
-  
+      - name: Pack workspace
+        run: tar -cf workspace.tar --exclude=.git --exclude=workspace.tar .
 
-      
+      - name: Upload workspace as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: node_workspace
+          path: workspace.tar
+          retention-days: 1
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: setup-node
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: node_workspace
+
+      - name: Unpack workspace
+        run: tar -xf workspace.tar
+
+      - name: Run ESLint
+        run: npm run lint
+
+  test-node:
+    name: Test Node.js
+    runs-on: ubuntu-latest
+    needs: setup-node
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Download workspace artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: node_workspace
+
+      - name: Unpack workspace
+        run: tar -xf workspace.tar
+
+      - name: Run tests
+        run: npm test
+
+  build:
+    name: Build release binaries
+    if: github.event_name == 'release'
+    needs: [lint, test-node]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+          - os: windows-latest
+            arch: x64
+          - os: macos-latest
+            arch: arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build executable
+        shell: bash
+        run: npm run build:exe -- --arch ${{ matrix.arch }} --platform ${{ runner.os }}
+
+      - name: Upload binaries to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  docker:
+    name: Build and push Docker image
+    if: github.event_name == 'release'
+    needs: [lint, test-node]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/node_docker_ci_cd:${{ github.event.release.tag_name }}
+            ghcr.io/${{ github.repository_owner }}/node_docker_ci_cd:latest
+            ${{ vars.DOCKER_USERNAME }}/node_docker_ci_cd:${{ github.event.release.tag_name }}
+            ${{ vars.DOCKER_USERNAME }}/node_docker_ci_cd:latest
