@@ -5,9 +5,7 @@ permissions:
 
 on: 
   push:
-    paths:
-      - "*.js"
-      - ".github/workflows/cicd.yml"
+    
 
   release:
     types: [published]
