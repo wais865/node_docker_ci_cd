@@ -1,0 +1,26 @@
+{
+  "name": "node_docker_ci_cd",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wais865/node_docker_ci_cd.git"
+  },
+  "author": "Wais Alizada",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wais865/node_docker_ci_cd/issues"
+  },
+  "homepage": "https://github.com/wais865/node_docker_ci_cd#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0"
+  }
+}
