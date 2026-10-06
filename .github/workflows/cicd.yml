@@ -148,13 +148,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/node_docker_ci_cd
+            ${{ vars.DOCKER_USERNAME }}/node_docker_ci_cd
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=sha
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/node_docker_ci_cd:${{ github.event.release.tag_name }}
-            ghcr.io/${{ github.repository_owner }}/node_docker_ci_cd:latest
-            ${{ vars.DOCKER_USERNAME }}/node_docker_ci_cd:${{ github.event.release.tag_name }}
-            ${{ vars.DOCKER_USERNAME }}/node_docker_ci_cd:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
