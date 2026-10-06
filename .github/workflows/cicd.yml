@@ -83,7 +83,6 @@ jobs:
 
   build:
     name: Build release binaries
-    if: github.event_name == 'release'
     needs: [lint, test-node]
     runs-on: ${{ matrix.os }}
     permissions:
@@ -124,7 +123,6 @@ jobs:
 
   docker:
     name: Build and push Docker image
-    if: github.event_name == 'release'
     needs: [lint, test-node]
     runs-on: ubuntu-latest
     permissions:
