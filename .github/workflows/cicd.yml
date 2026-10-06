@@ -109,12 +109,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build executable
-        shell: bash
-        run: npm run build:exe -- --arch ${{ matrix.arch }} --platform ${{ runner.os }}
-
-      - name: Upload binaries to GitHub release
-        uses: softprops/action-gh-release@v2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - name: Build executables
+        run: |
+          bun build index.js --compile --target=bun-linux-x64 --outfile dist/node-ci-linux-x64
+          bun build index.js --compile --target=bun-windows-x64 --outfile dist/node-ci-windows-x64.exe
+          bun build index.js --compile --target=bun-darwin-arm64 --outfile dist/node-ci-macos-arm64
+      - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
 
